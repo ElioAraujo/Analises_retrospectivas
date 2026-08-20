@@ -1,0 +1,158 @@
+---
+title: "Resumo do distrito"
+output: html_document
+
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = F, include=T, warning=F, message=F,
+                      out.width = "95%", out.height = "30%")
+
+
+draw_plot <- function(dat_alert, dist, disease_name){
+  dat_alert %>% filter(district == dist, disease == disease_name) %>%
+  group_by(year, month, disease) %>%
+  summarize(n_alert = sum(alert, na.rm=T)) %>%
+  ggplot(aes(month, n_alert)) + geom_bar(stat = 'identity') +
+  facet_grid(disease ~ year) +
+  ggtitle(paste0(dist, " - Alertas por mes, por doenca/sindrome")) +
+  scale_x_continuous(breaks = seq(1, 12, by = 1)) +
+  theme(strip.text = element_text(face = "bold"),
+        strip.text.y = element_text(size = 8))+
+  xlab("Mes") + ylab("Numero de alertas gerados por semana")
+}
+```
+
+# `r dist`
+
+## Numero de alertas gerados por semana
+
+```{r}
+p_overall
+```
+
+## Colera
+
+```{r}
+draw_plot(dat_alert, dist, "COLERA")
+```
+
+## Paralisia Flacida Aguda
+
+```{r}
+draw_plot(dat_alert, dist, "PFA")
+```
+
+## Peste
+
+```{r}
+draw_plot(dat_alert, dist, "PESTE")
+```
+
+## Tetano Neonatal
+
+```{r}
+draw_plot(dat_alert, dist, "TETANO NEONATAL")
+```
+
+## Diarreia
+
+### Aumento >50% vs. as 3 semanas anteriores
+
+```{r}
+draw_plot(dat_alert, dist, "DIARREIA P50P")
+```
+
+### Duplicacao de casos nas ultimas 2 semanas
+
+```{r}
+draw_plot(dat_alert, dist, "DIARREIA DOUBLING")
+```
+
+## Disenteria
+
+### Aumento >50% vs. as 3 semanas anteriores
+
+```{r}
+draw_plot(dat_alert, dist, "DISENTERIA P50P")
+```
+
+### Duplicacao de casos nas ultimas 2 semanas
+
+```{r}
+draw_plot(dat_alert, dist, "DISENTERIA DOUBLING")
+```
+
+## Sarampo
+
+```{r}
+draw_plot(dat_alert, dist, "SARAMPO")
+```
+
+## Malaria
+
+### Percentil 75
+
+```{r}
+draw_plot(dat_alert, dist, "MALARIA 75P")
+```
+
+### CSUM
+
+```{r}
+draw_plot(dat_alert, dist, "MALARIA CSUM")
+```
+
+### Media + 2DP
+
+```{r}
+draw_plot(dat_alert, dist, "MALARIA M2SD")
+```
+
+## Meningite
+
+```{r}
+draw_plot(dat_alert, dist, "MENINGITE")
+```
+
+## Raiva
+
+### Aumento >50% vs. as 3 semanas anteriores
+
+```{r}
+draw_plot(dat_alert, dist, "RAIVA P50P")
+```
+
+### Duplicacao de casos nas ultimas 2 semanas
+
+```{r}
+draw_plot(dat_alert, dist, "RAIVA DOUBLING")
+```
+
+## Sindrome Febril
+
+### Aumento >50% vs. as 3 semanas anteriores
+
+```{r}
+draw_plot(dat_alert, dist, "SINDROME FEBRIL P50P")
+```
+
+### Duplicacao de casos nas ultimas 2 semanas
+
+```{r}
+draw_plot(dat_alert, dist, "SINDROME FEBRIL DOUBLING")
+```
+
+## Mordeduras de Animal
+
+### Aumento >50% vs. as 3 semanas anteriores
+
+```{r}
+draw_plot(dat_alert, dist, "MORDEDURAS ANIMAL P50P")
+```
+
+### Duplicacao de casos nas ultimas 2 semanas
+
+```{r}
+draw_plot(dat_alert, dist, "MORDEDURAS ANIMAL DOUBLING")
+```
