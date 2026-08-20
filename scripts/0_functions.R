@@ -50,7 +50,70 @@ summary_label_country <- function(dat, alert_var){
   return(dat_text)
 }
 
+summary_label_district <- function(dat, alert_var){
+  dat_text1 <- dat %>% group_by(year, district) %>% summarize(
+    n_total = sum(!!sym(alert_var), na.rm=T)
+  )
+  
+  dat_text2 <-dat %>% group_by(year, district, week) %>% summarize(
+    n_alert = sum(!!sym(alert_var), na.rm=T)
+  ) %>% ungroup() %>% group_by(year, district) %>% 
+    summarize(
+      avg_n_alert = mean(n_alert, na.rm=T)
+    )
+  
+  dat_text <- merge(dat_text1, dat_text2, by = c("year", "district")) %>%
+    mutate(
+      label = sprintf("N = %.0f, Average %.1f alerts per week",
+                      n_total, avg_n_alert)
+    )
+  return(dat_text)
+}
+
 plot_alert_summary <- function(dat, alert_var, title){
+  
+  # numa analise nacional (varias provincias): mostra pais -> provincia
+  # numa analise scoped a uma so provincia (ex: results_provincias/Sofala): mostra provincia -> distrito
+  n_provincias <- n_distinct(dat$province)
+  
+  if (n_provincias == 1){
+    
+    dat_text_top <- summary_label_province(dat, alert_var)
+    dat_text_bottom <- summary_label_district(dat, alert_var)
+    
+    p_n_alerts <- gridExtra::grid.arrange(
+      textGrob(title, gp = gpar(fontsize = 13, fontface = 'bold')),
+      # total da provincia
+      dat %>% group_by(year, province, week) %>% summarize(
+        n_district = sum(!!sym(alert_var), na.rm=T)
+      ) %>% ggplot(aes(week, n_district)) + geom_bar(stat = "identity") +
+        theme_bw()+ 
+        ylab("# of districts\nabove the alert threshold") +
+        facet_grid(province~year) +
+        geom_text(
+          data    = dat_text_top,
+          mapping = aes(x = -Inf, y = -Inf, label = label),
+          hjust   = -0.1,
+          vjust   = -30
+        ),
+      # por distrito
+      dat %>% group_by(year, district, week) %>% summarize(
+        n_alert = sum(!!sym(alert_var), na.rm=T)
+      ) %>% ggplot(aes(week, n_alert)) + geom_bar(stat = "identity") +
+        theme_bw()+
+        ylab("# of alerts") +
+        facet_grid(district~year)+
+        geom_text(
+          data    = dat_text_bottom,
+          mapping = aes(x = -Inf, y = -Inf, label = label),
+          hjust   = -0.1,
+          vjust   = -5
+        ),
+      heights = c(0.1, 1, 2),
+      nrow = 3)
+    
+    return(p_n_alerts)
+  }
   
   # number of districts surpassing the alert per province
   
@@ -109,7 +172,7 @@ one_suspected_case <- function(dat, disease, varname, gen_plot = F, pasta_base =
     geom_hline(yintercept = 1, color = "red", linetype = "dashed", linewidth = 0.9) +
     facet_wrap(.~district, scales = "free_y") + 
     theme(legend.position = "top")+
-    scale_color_discrete(name = "Year")+
+    scale_color_brewer(palette = "Viridis", name = "Year")+
     ggtitle(paste0(disease, " (single suspected case)")) +
     ylab("Number of cases vs. alert threshold") + xlab("Week")
   
@@ -162,13 +225,14 @@ unusual_inc_50p <- function(dat, disease, varname, gen_plot = F, pasta_base = "r
   if(gen_plot){
   ## Example plot
   # All districts
-  p_dist <- dat %>% filter(year == max(year, na.rm = TRUE)) %>% ggplot() + 
+  p_dist <- dat %>% ggplot() + 
     geom_line(aes(week, .data[[varname]], group = year, color = factor(year)), linewidth = 0.8) +
     geom_area(aes(x=week, y=p3w_avg*1.5, fill = factor(year)), alpha = 0.5)+
-    geom_line(aes(week, p3w_avg*1.5), color = "red", linetype = "dashed", linewidth = 0.7) +
+    geom_line(aes(week, p3w_avg*1.5, group = year), color = "red", linetype = "dashed", linewidth = 0.7) +
     facet_wrap(.~district, scales = "free_y") + 
     theme(legend.position = "top")+
-    scale_color_discrete(name = "Year")+
+    scale_color_brewer(palette = "Set1", name = "Year")+
+    scale_fill_brewer(palette = "Set1", name = "Year")+
     ggtitle(paste0(disease, " (>50% increase vs. P3W)")) +
     ylab("Number of cases vs. alert threshold") + xlab("Week")
   
@@ -225,13 +289,14 @@ unusual_inc_doubling <- function(dat, disease, varname, gen_plot = F, pasta_base
   if(gen_plot){
   ## Example plot
   # All districts
-  p_dist <- dat %>% filter(year == max(year, na.rm = TRUE)) %>% ggplot() + 
+  p_dist <- dat %>% ggplot() + 
     geom_line(aes(week, .data[[varname]], group = year, color = factor(year)), linewidth = 0.8) +
     geom_area(aes(x=week, y=2*lag(.data[[varname]]), fill = factor(year)), alpha = 0.5)+
-    geom_line(aes(week, 2*lag(.data[[varname]])), color = "red", linetype = "dashed", linewidth = 0.7) +
+    geom_line(aes(week, 2*lag(.data[[varname]]), group = year), color = "red", linetype = "dashed", linewidth = 0.7) +
     facet_wrap(.~district, scales = "free_y") + 
     theme(legend.position = "top")+
-    scale_color_discrete(name = "Year")+
+    scale_color_brewer(palette = "Set1", name = "Year")+
+    scale_fill_brewer(palette = "Set1", name = "Year")+
     ggtitle(paste0(disease, " (Doubling of cases in the P2W)")) +
     ylab("Number of cases vs. alert threshold") + xlab("Week")
   
@@ -274,7 +339,7 @@ susp_cluster <- function(dat, disease, varname, n_cluster, gen_plot=F, pasta_bas
     geom_hline(yintercept = n_cluster, color = "red", linetype = "dashed", linewidth = 0.9) +
     facet_wrap(.~district, scales = "free_y") + 
     theme(legend.position = "top")+
-    scale_color_discrete(name = "Year")+
+    scale_color_brewer(palette = "Set1", name = "Year")+
     ggtitle(paste0(disease, sprintf(" (Suspected cluster of n>=%.0f)", n_cluster))) +
     ylab("Number of cases vs. alert threshold") + xlab("Week")
   
@@ -336,7 +401,7 @@ susp_cluster_janela <- function(dat, disease, varname, n_cluster, dias_janela = 
     geom_hline(yintercept = n_cluster, color = "red", linetype = "dashed", linewidth = 0.9) +
     facet_wrap(.~district, scales = "free_y") + 
     theme(legend.position = "top")+
-    scale_color_discrete(name = "Year")+
+    scale_color_brewer(palette = "Set1", name = "Year")+
     ggtitle(paste0(disease, sprintf(" (Cluster suspeito: >=%.0f casos em %.0f dias)", n_cluster, dias_janela))) +
     ylab(sprintf("Casos suspeitos acumulados em %.0f dias vs. limiar", dias_janela)) + xlab("Week")
   
@@ -390,13 +455,13 @@ above_percentile <- function(dat, disease, varname, p_cutoff, gen_plot = F, past
   if(gen_plot){
   ## Example plot
   # All districts
-  p_dist <- dat %>% filter(year == max(year, na.rm = TRUE)) %>% ggplot() + 
+  p_dist <- dat %>% ggplot() + 
     geom_line(aes(week, .data[[varname]], group = year, color = factor(year)), linewidth = 0.8) +
     geom_area(aes(x=week, y=p_threshold), fill = "#6a96de", alpha = 0.5)+
-    geom_line(aes(week, p_threshold), color = "red", linetype = "dashed", linewidth = 0.7) +
+    geom_line(aes(week, p_threshold, group = year), color = "red", linetype = "dashed", linewidth = 0.7) +
     facet_wrap(.~district, scales = "free_y") + 
     theme(legend.position = "top")+
-    scale_color_discrete(name = "Year")+
+    scale_color_brewer(palette = "Set1", name = "Year")+
     ggtitle(paste0(disease, sprintf(" (Above %.0fth percentile)", p_cutoff*100))) +
     ylab("Number of cases vs. alert threshold") + xlab("Week")
   
@@ -454,13 +519,13 @@ csum <- function(dat, disease, varname, gen_plot = F, pasta_base = "results"){
   if(gen_plot){
   ## Example plot
   # All districts
-  p_dist <- dat %>% filter(year == max(year, na.rm = TRUE)) %>% ggplot() + 
+  p_dist <- dat %>% ggplot() + 
     geom_line(aes(week, .data[[varname]], group = year, color = factor(year)), linewidth = 0.8) +
     geom_area(aes(x=week, y=csum), fill = "#6a96de", alpha = 0.5)+
-    geom_line(aes(week, csum), color = "red", linetype = "dashed", linewidth = 0.7) +
+    geom_line(aes(week, csum, group = year), color = "red", linetype = "dashed", linewidth = 0.7) +
     facet_wrap(.~district, scales = "free_y") + 
     theme(legend.position = "top")+
-    scale_color_discrete(name = "Year")+
+    scale_color_brewer(palette = "Set1", name = "Year")+
     ggtitle(paste0(disease, "(C-SUM)")) +
     ylab("Number of cases vs. alert threshold") + xlab("Week")
   
@@ -514,13 +579,13 @@ mean_2sd <- function(dat, disease, varname, gen_plot = F, pasta_base = "results"
   if(gen_plot){
   ## Example plot
   # All districts
-  p_dist <- dat %>% filter(year == max(year, na.rm = TRUE)) %>% ggplot() + 
+  p_dist <- dat %>% ggplot() + 
     geom_line(aes(week, .data[[varname]], group = year, color = factor(year)), linewidth = 0.8) +
     geom_area(aes(x=week, y=mean_2sd), fill = "#6a96de", alpha = 0.5)+
-    geom_line(aes(week, mean_2sd), color = "red", linetype = "dashed", linewidth = 0.7) +
+    geom_line(aes(week, mean_2sd, group = year), color = "red", linetype = "dashed", linewidth = 0.7) +
     facet_wrap(.~district, scales = "free_y") + 
     theme(legend.position = "top")+
-    scale_color_discrete(name = "Year")+
+    scale_color_brewer(palette = "Set1", name = "Year")+
     ggtitle(paste0(disease, "(Mean + 2*SD)")) +
     ylab("Number of cases vs. alert threshold") + xlab("Week")
   
@@ -583,13 +648,13 @@ attack_rate <- function(dat, disease, varname, pop, ar_cutoff, gen_plot=F, pasta
   if(gen_plot){
   ## Example plot
   # All districts
-  p_dist <- dat %>% filter(year == max(year, na.rm = TRUE)) %>% ggplot() + 
+  p_dist <- dat %>% ggplot() + 
     geom_line(aes(week, attack_rate, group = year, color = factor(year)), linewidth = 0.8) +
     geom_area(aes(x=week, y=ar_cutoff), fill = "#6a96de", alpha = 0.5)+
     geom_hline(yintercept = ar_cutoff, color = "red", linetype = "dashed", linewidth = 0.9) +
     facet_wrap(.~district, scales = "free_y") + 
     theme(legend.position = "top")+
-    scale_color_discrete(name = "Year")+
+    scale_color_brewer(palette = "Set1", name = "Year")+
     ggtitle(paste0(disease, " (Attack rate per 100,000 > ", ar_cutoff, ")")) +
     ylab("Attack rate vs. alert threshold") + xlab("Week")
   

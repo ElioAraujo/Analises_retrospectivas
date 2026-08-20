@@ -65,15 +65,26 @@ for (tentativa in 1:max_tentativas) {
 }
 
 if (!sucesso) {
-  stop("Nao foi possivel descarregar os dados do SISMA apos varias tentativas.")
+
+  if (file.exists(output_xls)) {
+    message(sprintf(
+      "AVISO: nao foi possivel descarregar dados novos do SISMA apos %d tentativas. A continuar com o Data_BES.xls existente (de uma corrida anterior).",
+      max_tentativas
+    ))
+  } else {
+    stop("Nao foi possivel descarregar os dados do SISMA apos varias tentativas, e nao existe nenhum Data_BES.xls anterior para usar.")
+  }
+
+} else {
+
+  dados <- read_excel(output_tmp)
+
+  if (ncol(dados) == 0 || nrow(dados) == 0) {
+    stop("Ficheiro descarregado esta vazio ou sem colunas.")
+  }
+
+  file.rename(output_tmp, output_xls)
+
+  message(sprintf("Ficheiro final guardado em: %s (%d linhas, %d colunas)", output_xls, nrow(dados), ncol(dados)))
+
 }
-
-dados <- read_excel(output_tmp)
-
-if (ncol(dados) == 0 || nrow(dados) == 0) {
-  stop("Ficheiro descarregado esta vazio ou sem colunas.")
-}
-
-file.rename(output_tmp, output_xls)
-
-message(sprintf("Ficheiro final guardado em: %s (%d linhas, %d colunas)", output_xls, nrow(dados), ncol(dados)))
