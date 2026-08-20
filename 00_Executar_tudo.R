@@ -28,4 +28,9 @@ dat_alertas <- dat %>%
 
 rio::export(dat_alertas, here::here("data", "apenas_alertas.xlsx"))
 
-message("Pipeline concluido. Resultados em results/ e data/dados_com_alertas.xlsx")
+message("Pipeline nacional concluido. Resultados em results/ e data/dados_com_alertas.xlsx")
+
+message("A gerar analises por provincia (Sofala, Nampula) em results_provincias/ ...")
+source(here::here("02_Analises_provincia.R"))
+
+message("Tudo concluido: resultados nacionais em results/, por provincia em results_provincias/")
